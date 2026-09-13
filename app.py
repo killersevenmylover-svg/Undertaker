@@ -41,7 +41,7 @@ with st.sidebar:
                 "messages": [], 
                 "system_prompt": "", 
                 "lore_bank": "",
-                "model": "DeepSeek R1 (Идеальная память and NSFW)"
+                "model": "DeepSeek R1 (Идеальная память и NSFW)"
             }
             st.session_state.current_room = new_room_name
             st.rerun()
@@ -50,6 +50,9 @@ with st.sidebar:
     
     # Выбор текущей активной комнаты
     room_list = list(st.session_state.rooms.keys())
+    if st.session_state.current_room not in room_list:
+        st.session_state.current_room = room_list[0]
+        
     current_room = st.selectbox("Переключить на чат:", room_list, index=room_list.index(st.session_state.current_room))
     st.session_state.current_room = current_room
     
@@ -59,12 +62,16 @@ with st.sidebar:
     # Индивидуальные настройки для выбранной комнаты
     room_data = st.session_state.rooms[st.session_state.current_room]
     
-    model_name = st.selectbox("Выбор нейросети", list(MODELS.keys()), 
-                              index=list(MODELS.keys()).index(room_data["model"]))
+    # Защита на случай, если имя модели кривое
+    current_model = room_data.get("model", "DeepSeek R1 (Идеальная память и NSFW)")
+    if current_model not in MODELS:
+        current_model = "DeepSeek R1 (Идеальная память и NSFW)"
+        
+    model_name = st.selectbox("Выбор нейросети", list(MODELS.keys()), index=list(MODELS.keys()).index(current_model))
     st.session_state.rooms[st.session_state.current_room]["model"] = model_name
     
     system_prompt = st.text_area("Системный промт (Твоя роль / Характер бота)", 
-                                 value=room_data["system_prompt"],
+                                 value=room_data.get("system_prompt", ""),
                                  placeholder="Напиши сюда, кем должна быть нейросеть...", 
                                  height=150)
     st.session_state.rooms[st.session_state.current_room]["system_prompt"] = system_prompt
@@ -79,7 +86,7 @@ with st.sidebar:
     if st.button("🗑️ Удалить эту комнату"):
         if len(st.session_state.rooms) > 1:
             del st.session_state.rooms[st.session_state.current_room]
-            st.session_state.current_room = list(st.session_state.rooms.keys())
+            st.session_state.current_room = list(st.session_state.rooms.keys())[0]
             st.rerun()
         else:
             st.session_state.rooms[st.session_state.current_room]["messages"] = []
@@ -90,7 +97,7 @@ active_room = st.session_state.rooms[st.session_state.current_room]
 st.subheader(f"📍 Текущий чат: {st.session_state.current_room}")
 
 # Отображение истории сообщений конкретной комнаты
-for message in active_room["messages"]:
+for message in active_room.get("messages", []):
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
@@ -98,11 +105,13 @@ for message in active_room["messages"]:
 if user_input := st.chat_input("Напишите сообщение персонажу..."):
     with st.chat_message("user"):
         st.markdown(user_input)
+    if "messages" not in st.session_state.rooms[st.session_state.current_room]:
+        st.session_state.rooms[st.session_state.current_room]["messages"] = []
     st.session_state.rooms[st.session_state.current_room]["messages"].append({"role": "user", "content": user_input})
 
     # Формируем скрытый контекст запроса с учетом Системного промта и Блокнота Лора
     full_system_context = ""
-    if active_room["system_prompt"]:
+    if active_room.get("system_prompt", ""):
         full_system_context += f"Main role and instructions:\n{active_room['system_prompt']}\n\n"
     if active_room.get("lore_bank", ""):
         full_system_context += f"Important lore details to remember:\n{active_room['lore_bank']}\n"
@@ -111,7 +120,7 @@ if user_input := st.chat_input("Напишите сообщение персон
     if full_system_context:
         api_messages.append({"role": "system", "content": full_system_context})
         
-    for msg in active_room["messages"]:
+    for msg in st.session_state.rooms[st.session_state.current_room]["messages"]:
         api_messages.append({"role": msg["role"], "content": msg["content"]})
 
     # Запрос к SambaNova
