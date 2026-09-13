@@ -19,7 +19,7 @@ if not st.session_state.authenticated:
             st.error("Неверный пароль!")
         st.stop()
 
-# 🔑 Твой новый рабочий API-ключ от OpenRouter зашит намертво внутри:
+# 🔑 Твой рабочий API-ключ от OpenRouter зашит намертво внутри:
 API_KEY = "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"
 
 # Подключаемся к стабильным серверам OpenRouter
@@ -28,7 +28,7 @@ client = OpenAI(
     api_key=API_KEY
 )
 
-# 📦 БЕСПЛАТНЫЕ ФЛАГМАНСКИЕ МОДЕЛИ НА OPENROUTER
+# 📦 ТВОИ ЛЮБИМЫЕ МОДЕЛИ БЕЗ ИЗМЕНЕНИЙ
 MODELS = {
     "DeepSeek R1 (Идеальная память и рассуждения)": "deepseek/deepseek-r1:free",
     "Llama 3.3 70B (Супер для отыгрыша ролок)": "meta-llama/llama-3.3-70b-instruct:free",
@@ -69,10 +69,10 @@ with st.sidebar:
 
     st.write("---")
     
-    # Выбор текущей активной комнаты
+    # Выбор текущей активной комнаты с железной защитой от вылетов
     room_list = list(st.session_state.rooms.keys())
     if st.session_state.current_room not in room_list:
-        st.session_state.current_room = room_list if room_list else "Основная ролка"
+        st.session_state.current_room = room_list[0] if room_list else "Основная ролка"
         
     current_room = st.selectbox("Переключить на чат:", room_list, index=room_list.index(st.session_state.current_room))
     st.session_state.current_room = current_room
@@ -110,18 +110,21 @@ with st.sidebar:
                              height=200)
     st.session_state.rooms[st.session_state.current_room]["lore_bank"] = lore_bank
     
+    # Исправленная безопасная очистка и удаление комнат
     if st.button("🗑️ Удалить эту комнату"):
         if len(st.session_state.rooms) > 1:
-            del st.session_state.rooms[st.session_state.current_room]
-            st.session_state.current_room = list(st.session_state.rooms.keys())
+            old_room = st.session_state.current_room
+            del st.session_state.rooms[old_room]
+            st.session_state.current_room = list(st.session_state.rooms.keys())[0]
             st.rerun()
         else:
             st.session_state.rooms[st.session_state.current_room]["messages"] = []
             st.rerun()
 
-# Отображение истории сообщений
+# Работа со средней частью — теперь тут ТОЛЬКО чистый чат без мусорных заголовков!
 active_room = st.session_state.rooms[st.session_state.current_room]
 
+# Отображение истории сообщений
 for message in active_room.get("messages", []):
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
@@ -160,8 +163,8 @@ if user_input := st.chat_input("Написать Андертейкеру..."):
                 stream=True
             )
             for chunk in response:
-                if chunk.choices[0].delta.content:
-                    full_response += chunk.choices[0].delta.content
+                if chunk.choices.delta.content:
+                    full_response += chunk.choices.delta.content
                     message_placeholder.markdown(full_response + "▌")
             message_placeholder.markdown(full_response)
         except Exception as e:
