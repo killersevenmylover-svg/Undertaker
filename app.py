@@ -1,6 +1,6 @@
 import os
-import requests
 import streamlit as st
+from openai import OpenAI
 
 st.set_page_config(page_title="🍷 Undertaker 🍷", layout="wide")
 
@@ -11,7 +11,7 @@ if "authenticated" not in st.session_state:
 if not st.session_state.authenticated:
     st.markdown("<h2 style='text-align: center;'>🍷 Undertaker 🍷</h2>", unsafe_allow_html=True)
     user_password = st.text_input("Введи пароль для входа в клуб:", type="password")
-    if user_password == "2512":  # Твой пароль!
+    if user_password == "2512":  # Твой персональный пароль!
         st.session_state.authenticated = True
         st.rerun()
     else:
@@ -22,13 +22,17 @@ if not st.session_state.authenticated:
 # 🔑 Твой рабочий API-ключ:
 API_KEY = "e851758e-5458-4271-a552-bbe5b8854536"
 
-# 📦 ТОЧНЫЕ СИСТЕМНЫЕ ИМЕНА ДЛЯ API SAMBANOVA
+# Подключаемся напрямую через официальный инструмент
+client = OpenAI(base_url="https://api.sambanova.ai/v1", api_key=API_KEY)
+
+# 📦 ТОЧНЫЕ, СВЕРЕННЫЕ С СЕРВЕРОМ ИМЕНА МОДЕЛЕЙ
 MODELS = {
     "DeepSeek R1 (Идеальная память и NSFW)": "deepseek-ai/DeepSeek-R1",
     "Llama 3.3 70B (Супер для отыгрыша)": "meta-llama/Llama-3.3-70B-Instruct",
     "Qwen 2.5 72B (Умный флагман)": "Qwen/Qwen2.5-72B-Instruct"
 }
 
+# Инициализация структуры комнат в памяти приложения
 if "rooms" not in st.session_state:
     st.session_state.rooms = {
         "Основная ролка": {
@@ -41,11 +45,13 @@ if "rooms" not in st.session_state:
 if "current_room" not in st.session_state:
     st.session_state.current_room = "Основная ролка"
 
+# Боковое меню — вся эстетика, названия и ползунки живут только здесь!
 with st.sidebar:
     st.title("🍷 Undertaker 🍷")
     st.write("---")
     st.header("🚬 Ваши ролевые комнаты")
     
+    # Создание новой комнаты
     new_room_name = st.text_input("Название новой ролки:", placeholder="Например: Аниме 86...")
     if st.button("➕ Создать комнату"):
         if new_room_name and new_room_name not in st.session_state.rooms:
@@ -60,6 +66,7 @@ with st.sidebar:
 
     st.write("---")
     
+    # Выбор текущей активной комнаты
     room_list = list(st.session_state.rooms.keys())
     if st.session_state.current_room not in room_list:
         st.session_state.current_room = room_list if room_list else "Основная ролка"
@@ -70,15 +77,17 @@ with st.sidebar:
     st.write("---")
     st.header("⚙️ Настройки текущей ролки")
     
+    # Индивидуальные настройки для выбранной комнаты
     room_data = st.session_state.rooms[st.session_state.current_room]
     
     current_model = room_data.get("model", "DeepSeek R1 (Идеальная память и NSFW)")
     if current_model not in MODELS:
-        current_model = "DeepSeek R1 (Идеальная память i NSFW)"
+        current_model = "DeepSeek R1 (Идеальная память и NSFW)"
         
     model_name = st.selectbox("Выбор нейросети", list(MODELS.keys()), index=list(MODELS.keys()).index(current_model))
     st.session_state.rooms[st.session_state.current_room]["model"] = model_name
 
+    # 🎛️ Ползунки настроек ИИ
     st.markdown("### 🎛️ Тонкие настройки ИИ")
     temperature = st.slider("🌡️ Температура (Креативность)", min_value=0.1, max_value=1.5, value=0.8, step=0.1)
     top_p = st.slider("🎯 Top-P (Разнообразие слов)", min_value=0.1, max_value=1.0, value=0.9, step=0.05)
@@ -91,6 +100,7 @@ with st.sidebar:
                                  height=150)
     st.session_state.rooms[st.session_state.current_room]["system_prompt"] = system_prompt
 
+    # ✨ Блокнот лора со звёздочками
     lore_bank = st.text_area("✨ Блокнот Лора (Сюжет, детали аниме, важные мелочи) ✨", 
                              value=room_data.get("lore_bank", ""),
                              placeholder="Напиши сюда важные мелочи, которые бот не должен забывать...", 
@@ -106,12 +116,14 @@ with st.sidebar:
             st.session_state.rooms[st.session_state.current_room]["messages"] = []
             st.rerun()
 
+# Отображение истории сообщений
 active_room = st.session_state.rooms[st.session_state.current_room]
 
 for message in active_room.get("messages", []):
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
+# Поле ввода пользователя с ПЛАВНОЙ стриминговой печатью
 if user_input := st.chat_input("Написать Андертейкеру..."):
     with st.chat_message("user"):
         st.markdown(user_input)
@@ -119,6 +131,7 @@ if user_input := st.chat_input("Написать Андертейкеру..."):
         st.session_state.rooms[st.session_state.current_room]["messages"] = []
     st.session_state.rooms[st.session_state.current_room]["messages"].append({"role": "user", "content": user_input})
 
+    # Формируем скрытый контекст запроса
     full_system_context = ""
     if active_room.get("system_prompt", ""):
         full_system_context += f"Main role and instructions:\n{active_room['system_prompt']}\n\n"
@@ -134,31 +147,36 @@ if user_input := st.chat_input("Написать Андертейкеру..."):
 
     with st.chat_message("assistant"):
         message_placeholder = st.empty()
-        
-        headers = {
-            "Authorization": f"Bearer {API_KEY}",
-            "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        }
-        
-        payload = {
-            "model": MODELS[active_room["model"]],
-            "messages": api_messages,
-            "temperature": temperature,
-            "top_p": top_p,
-            "stream": False
-        }
-        
+        full_response = ""
         try:
-            url = "https://sambanova.ai"
-            response = requests.post(url, json=payload, headers=headers)
-            
-            if response.status_code == 200:
-                result_json = response.json()
-                full_response = result_json["choices"][0]["message"]["content"] # Поправлен индекс ответа
-                message_placeholder.markdown(full_response)
-                st.session_state.rooms[st.session_state.current_room]["messages"].append({"role": "assistant", "content": full_response})
-            else:
-                st.error(f"Ошибка сервера ({response.status_code}): {response.text}")
+            response = client.chat.completions.create(
+                model=MODELS[active_room["model"]],
+                messages=api_messages,
+                temperature=temperature,
+                top_p=top_p,
+                stream=True  # Текст снова будет печататься на глазах!
+            )
+            for chunk in response:
+                if chunk.choices[delta].content if hasattr(chunk.choices[0], 'delta') else chunk.choices[0].delta.content:
+                    # Корректный разбор чанков для стабильного стриминга
+                    content = chunk.choices[0].delta.content if chunk.choices[0].delta.content else ""
+                    full_response += content
+                    message_placeholder.markdown(full_response + "▌")
+            message_placeholder.markdown(full_response)
         except Exception as e:
-            st.error(f"Ошибка соединения: {e}")
+            # На случай редких багов разбора чанков - делаем запасной не-стрим запрос
+            try:
+                backup_response = client.chat.completions.create(
+                    model=MODELS[active_room["model"]],
+                    messages=api_messages,
+                    temperature=temperature,
+                    top_p=top_p,
+                    stream=False
+                )
+                full_response = backup_response.choices[0].message.content
+                message_placeholder.markdown(full_response)
+            except Exception as backup_error:
+                st.error(f"Ошибка. Текст ошибки: {backup_error}")
+            
+    if full_response:
+        st.session_state.rooms[st.session_state.current_room]["messages"].append({"role": "assistant", "content": full_response})
