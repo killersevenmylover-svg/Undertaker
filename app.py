@@ -1,6 +1,6 @@
 import os
+import requests
 import streamlit as st
-from openai import OpenAI
 
 st.set_page_config(page_title="🍷 Undertaker 🍷", layout="wide")
 
@@ -22,14 +22,11 @@ if not st.session_state.authenticated:
 # 🔑 Твой рабочий API-ключ:
 API_KEY = "e851758e-5458-4271-a552-bbe5b8854536"
 
-# Подключаемся напрямую через официальный инструмент
-client = OpenAI(base_url="https://sambanova.ai", api_key=API_KEY)
-
-# 📦 ИДЕАЛЬНЫЕ ИМЕНА МОДЕЛЕЙ СТРОГО МАЛЕНЬКИМИ БУКВАМИ (КАК ТРЕБУЕТ СЕРВЕР)
+# 📦 ОФИЦИАЛЬНЫЕ УСТОЙЧИВЫЕ ID МОДЕЛЕЙ ДЛЯ SAMBANOVA CLOUD
 MODELS = {
-    "DeepSeek R1 (Идеальная память и NSFW)": "deepseek-r1",
-    "Llama 3.3 70B (Супер для отыгрыша)": "meta-llama-3.3-70b-instruct",
-    "Qwen 2.5 72B (Умный флагман)": "qwen2.5-72b-instruct"
+    "DeepSeek R1 (Идеальная память и NSFW)": "deepseek-ai/DeepSeek-R1",
+    "Llama 3.3 70B (Супер для отыгрыша)": "meta-llama/Llama-3.3-70B-Instruct",
+    "Qwen 2.5 72B (Умный флагман)": "Qwen/Qwen2.5-72B-Instruct"
 }
 
 # Инициализация структуры комнат в памяти приложения
@@ -77,7 +74,6 @@ with st.sidebar:
     st.write("---")
     st.header("⚙️ Настройки текущей ролки")
     
-    # Индивидуальные настройки для выбранной комнаты
     room_data = st.session_state.rooms[st.session_state.current_room]
     
     current_model = room_data.get("model", "DeepSeek R1 (Идеальная память и NSFW)")
@@ -123,7 +119,7 @@ for message in active_room.get("messages", []):
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Поле ввода пользователя с ПЛАВНОЙ стриминговой печатью
+# Запрос через чистый прямой POST-метод
 if user_input := st.chat_input("Написать Андертейкеру..."):
     with st.chat_message("user"):
         st.markdown(user_input)
@@ -131,12 +127,12 @@ if user_input := st.chat_input("Написать Андертейкеру..."):
         st.session_state.rooms[st.session_state.current_room]["messages"] = []
     st.session_state.rooms[st.session_state.current_room]["messages"].append({"role": "user", "content": user_input})
 
-    # Формируем скрытый контекст запроса
+    # Собираем контекст лора и системных команд
     full_system_context = ""
     if active_room.get("system_prompt", ""):
-        full_system_context += f"Main role and instructions:\n{active_room['system_prompt']}\n\n"
+        full_system_context += f"Instructions:\n{active_room['system_prompt']}\n\n"
     if active_room.get("lore_bank", ""):
-        full_system_context += f"Important lore details to remember:\n{active_room['lore_bank']}\n"
+        full_system_context += f"Lore details:\n{active_room['lore_bank']}\n"
 
     api_messages = []
     if full_system_context:
@@ -147,21 +143,31 @@ if user_input := st.chat_input("Написать Андертейкеру..."):
 
     with st.chat_message("assistant"):
         message_placeholder = st.empty()
-        full_response = ""
+        
+        # Полные железные заголовки авторизации
+        headers = {
+            "Authorization": f"Bearer {API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "model": MODELS[active_room["model"]],
+            "messages": api_messages,
+            "temperature": temperature,
+            "top_p": top_p
+        }
+        
         try:
-            response = client.chat.completions.create(
-                model=MODELS[active_room["model"]],
-                messages=api_messages,
-                temperature=temperature,
-                top_p=top_p,
-                stream=True  # Текст снова будет печататься на глазах буковка за буковкой!
-            )
-            for chunk in response:
-                if chunk.choices[0].delta.content:
-                    content = chunk.choices[0].delta.content
-                    full_response += content
-                    message_placeholder.markdown(full_response + "▌")
-            message_placeholder.markdown(full_response)
-            st.session_state.rooms[st.session_state.current_room]["messages"].append({"role": "assistant", "content": full_response})
+            # Стучимся на прямой официальный эндпоинт SambaNova
+            url = "https://sambanova.ai"
+            response = requests.post(url, json=payload, headers=headers)
+            
+            if response.status_code == 200:
+                result_json = response.json()
+                full_response = result_json["choices"][0]["message"]["content"]
+                message_placeholder.markdown(full_response)
+                st.session_state.rooms[st.session_state.current_room]["messages"].append({"role": "assistant", "content": full_response})
+            else:
+                st.error(f"Ошибка сервера ({response.status_code}): {response.text}")
         except Exception as e:
-            st.error(f"Ошибка. Текст ошибки: {e}")
+            st.error(f"Ошибка соединения: {e}")
