@@ -9,8 +9,9 @@ st.title("🍷 Undertaker 🍷")
 API_KEY = st.secrets["SAMBANOVA_API_KEY"]
 client = OpenAI(base_url="https://sambanova.ai", api_key=API_KEY)
 
-# Список доступных огромных моделей
+# Полный список доступных флагманских моделей
 MODELS = {
+    "DeepSeek R1 (Идеальная память и NSFW)": "DeepSeek-R1",
     "Qwen 3.8 Max (Новейший флагман)": "Qwen3.8-Max",
     "Llama 3.3 70B (Супер для отыгрыша)": "Meta-Llama-3.3-70B-Instruct"
 }
@@ -18,23 +19,29 @@ MODELS = {
 # Инициализация структуры комнат в памяти приложения
 if "rooms" not in st.session_state:
     st.session_state.rooms = {
-        "Основная ролка": {"messages": [], "system_prompt": "", "model": "Qwen 3.8 Max (Новейший флагман)"}
+        "Основная ролка": {
+            "messages": [], 
+            "system_prompt": "", 
+            "lore_bank": "", 
+            "model": "DeepSeek R1 (Идеальная память и NSFW)"
+        }
     }
 if "current_room" not in st.session_state:
     st.session_state.current_room = "Основная ролка"
 
 # Боковое меню для управления комнатами и настройками
 with st.sidebar:
-    st.header("🏰 Ваши ролевые комнаты")
+    st.header("🚬 Ваши ролевые комнаты")
     
     # Создание новой комнаты
-    new_room_name = st.text_input("Название новой ролки:", placeholder="Например: Киберпанк...")
+    new_room_name = st.text_input("Название новой ролки:", placeholder="Например: Аниме 86...")
     if st.button("➕ Создать комнату"):
         if new_room_name and new_room_name not in st.session_state.rooms:
             st.session_state.rooms[new_room_name] = {
                 "messages": [], 
                 "system_prompt": "", 
-                "model": "Qwen 3.8 Max (Новейший флагман)"
+                "lore_bank": "",
+                "model": "DeepSeek R1 (Идеальная память and NSFW)"
             }
             st.session_state.current_room = new_room_name
             st.rerun()
@@ -56,11 +63,18 @@ with st.sidebar:
                               index=list(MODELS.keys()).index(room_data["model"]))
     st.session_state.rooms[st.session_state.current_room]["model"] = model_name
     
-    system_prompt = st.text_area("Системный промт (Сюжет / Твоя роль)", 
+    system_prompt = st.text_area("Системный промт (Твоя роль / Характер бота)", 
                                  value=room_data["system_prompt"],
                                  placeholder="Напиши сюда, кем должна быть нейросеть...", 
-                                 height=180)
+                                 height=150)
     st.session_state.rooms[st.session_state.current_room]["system_prompt"] = system_prompt
+
+    # ✨ НАШ ОБНОВЛЕННЫЙ БЛОКНОТ ЛОРА И ДЕТАЛЕЙ СО ЗВЕЗДОЧКАМИ
+    lore_bank = st.text_area("✨ Блокнот Лора (Сюжет, детали аниме, важные мелочи) ✨", 
+                             value=room_data.get("lore_bank", ""),
+                             placeholder="Напиши сюда важные мелочи, которые бот не должен забывать...", 
+                             height=200)
+    st.session_state.rooms[st.session_state.current_room]["lore_bank"] = lore_bank
     
     if st.button("🗑️ Удалить эту комнату"):
         if len(st.session_state.rooms) > 1:
@@ -86,10 +100,17 @@ if user_input := st.chat_input("Напишите сообщение персон
         st.markdown(user_input)
     st.session_state.rooms[st.session_state.current_room]["messages"].append({"role": "user", "content": user_input})
 
-    # Формируем контекст запроса с учетом системного промта комнаты
-    api_messages = []
+    # Формируем скрытый контекст запроса с учетом Системного промта и Блокнота Лора
+    full_system_context = ""
     if active_room["system_prompt"]:
-        api_messages.append({"role": "system", "content": active_room["system_prompt"]})
+        full_system_context += f"Main role and instructions:\n{active_room['system_prompt']}\n\n"
+    if active_room.get("lore_bank", ""):
+        full_system_context += f"Important lore details to remember:\n{active_room['lore_bank']}\n"
+
+    api_messages = []
+    if full_system_context:
+        api_messages.append({"role": "system", "content": full_system_context})
+        
     for msg in active_room["messages"]:
         api_messages.append({"role": msg["role"], "content": msg["content"]})
 
