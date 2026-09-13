@@ -12,7 +12,7 @@ client = OpenAI(base_url="https://sambanova.ai", api_key=API_KEY)
 # Список доступных огромных моделей
 MODELS = {
     "Llama 3.3 70B (Супер для отыгрыша)": "Meta-Llama-3.3-70B-Instruct",
-    "Qwen 2.5 72B (Отличная логика)": "Qwen2.5-72B-Instruct"
+    "Qwen 3.8 Max (Новейший флагман)": "Qwen3.8-Max"
 }
 
 # Боковое меню для настроек
