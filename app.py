@@ -3,7 +3,6 @@ import streamlit as st
 from openai import OpenAI
 
 st.set_page_config(page_title="🍷 Undertaker 🍷", layout="wide")
-st.title("🍷 Undertaker 🍷")
 
 # Подключаем бесплатный API ключ из секретов
 API_KEY = st.secrets["SAMBANOVA_API_KEY"]
@@ -29,8 +28,10 @@ if "rooms" not in st.session_state:
 if "current_room" not in st.session_state:
     st.session_state.current_room = "Основная ролка"
 
-# Боковое меню для управления комнатами и настройками
+# Боковое меню — вся эстетика, названия и ползунки живут только здесь!
 with st.sidebar:
+    st.title("🍷 Undertaker 🍷")
+    st.write("---")
     st.header("🚬 Ваши ролевые комнаты")
     
     # Создание новой комнаты
@@ -51,7 +52,7 @@ with st.sidebar:
     # Выбор текущей активной комнаты
     room_list = list(st.session_state.rooms.keys())
     if st.session_state.current_room not in room_list:
-        st.session_state.current_room = room_list[0]
+        st.session_state.current_room = room_list if room_list else "Основная ролка"
         
     current_room = st.selectbox("Переключить на чат:", room_list, index=room_list.index(st.session_state.current_room))
     st.session_state.current_room = current_room
@@ -69,6 +70,13 @@ with st.sidebar:
         
     model_name = st.selectbox("Выбор нейросети", list(MODELS.keys()), index=list(MODELS.keys()).index(current_model))
     st.session_state.rooms[st.session_state.current_room]["model"] = model_name
+
+    # 🎛️ Ползунки настроек ИИ
+    st.markdown("### 🎛️ Тонкие настройки ИИ")
+    temperature = st.slider("🌡️ Температура (Креативность)", min_value=0.1, max_value=1.5, value=0.8, step=0.1)
+    top_p = st.slider("🎯 Top-P (Разнообразие слов)", min_value=0.1, max_value=1.0, value=0.9, step=0.05)
+    
+    st.write("---")
     
     system_prompt = st.text_area("Системный промт (Твоя роль / Характер бота)", 
                                  value=room_data.get("system_prompt", ""),
@@ -76,7 +84,7 @@ with st.sidebar:
                                  height=150)
     st.session_state.rooms[st.session_state.current_room]["system_prompt"] = system_prompt
 
-    # ✨ НАШ ОБНОВЛЕННЫЙ БЛОКНОТ ЛОРА И ДЕТАЛЕЙ СО ЗВЕЗДОЧКАМИ
+    # ✨ Блокнот лора со звёздочками
     lore_bank = st.text_area("✨ Блокнот Лора (Сюжет, детали аниме, важные мелочи) ✨", 
                              value=room_data.get("lore_bank", ""),
                              placeholder="Напиши сюда важные мелочи, которые бот не должен забывать...", 
@@ -86,30 +94,29 @@ with st.sidebar:
     if st.button("🗑️ Удалить эту комнату"):
         if len(st.session_state.rooms) > 1:
             del st.session_state.rooms[st.session_state.current_room]
-            st.session_state.current_room = list(st.session_state.rooms.keys())[0]
+            st.session_state.current_room = list(st.session_state.rooms.keys())
             st.rerun()
         else:
             st.session_state.rooms[st.session_state.current_room]["messages"] = []
             st.rerun()
 
-# Работа со средней частью — выбранным чатом
+# Работа со средней частью — теперь тут ТОЛЬКО чистый чат без мусорных заголовков!
 active_room = st.session_state.rooms[st.session_state.current_room]
-st.subheader(f"📍 Текущий чат: {st.session_state.current_room}")
 
-# Отображение истории сообщений конкретной комнаты
+# Отображение истории сообщений
 for message in active_room.get("messages", []):
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Поле ввода пользователя
-if user_input := st.chat_input("Напишите сообщение персонажу..."):
+# Поле ввода пользователя с кастомным текстом «Написать Андертейкеру...»
+if user_input := st.chat_input("Написать Андертейкеру..."):
     with st.chat_message("user"):
         st.markdown(user_input)
     if "messages" not in st.session_state.rooms[st.session_state.current_room]:
         st.session_state.rooms[st.session_state.current_room]["messages"] = []
     st.session_state.rooms[st.session_state.current_room]["messages"].append({"role": "user", "content": user_input})
 
-    # Формируем скрытый контекст запроса с учетом Системного промта и Блокнота Лора
+    # Формируем скрытый контекст запроса
     full_system_context = ""
     if active_room.get("system_prompt", ""):
         full_system_context += f"Main role and instructions:\n{active_room['system_prompt']}\n\n"
@@ -123,7 +130,7 @@ if user_input := st.chat_input("Напишите сообщение персон
     for msg in st.session_state.rooms[st.session_state.current_room]["messages"]:
         api_messages.append({"role": msg["role"], "content": msg["content"]})
 
-    # Запрос к SambaNova
+    # Запрос к SambaNova с учетом крутилок Температуры и Top-P
     with st.chat_message("assistant"):
         message_placeholder = st.empty()
         full_response = ""
@@ -131,7 +138,8 @@ if user_input := st.chat_input("Напишите сообщение персон
             response = client.chat.completions.create(
                 model=MODELS[active_room["model"]],
                 messages=api_messages,
-                temperature=0.8,
+                temperature=temperature,
+                top_p=top_p,
                 stream=True
             )
             for chunk in response:
