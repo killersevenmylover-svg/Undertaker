@@ -10,9 +10,9 @@ if "authenticated" not in st.session_state:
 
 if not st.session_state.authenticated:
     # Окно пароля по центру экрана, пока не введут правильный
-    st.markdown("<h2 style='text-align: center;'>🍷 Undertaker 🍷</h2>", unsafe_input=True)
+    st.markdown("<h2 style='text-align: center;'>🍷 Undertaker 🍷</h2>", unsafe_allow_html=True)
     user_password = st.text_input("Введи пароль для входа в клуб:", type="password")
-    if user_password == "Undertaker000":  # 💡 ПОМЕНЯЙ "0000" НА СВОЙ ЛЮБИМЫЙ ПАРОЛЬ!
+    if user_password == "2512":  # 💡 ПОМЕНЯЙ "0000" НА СВОЙ ЛЮБИМЫЙ ПАРОЛЬ!
         st.session_state.authenticated = True
         st.rerun()
     else:
