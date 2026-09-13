@@ -20,8 +20,10 @@ if not st.session_state.authenticated:
             st.error("Неверный пароль!")
         st.stop()
 
-# Подключаем бесплатный API ключ из секретов
-API_KEY = st.secrets["SAMBANOVA_API_KEY"]
+# 🔑 ВСТАВЬ СВОЙ НОВЫЙ API-КЛЮЧ ОТ SAMBANOVA СТРОГО В КАВЫЧКИ НИЖЕ:
+API_KEY = "049ac163-be01-4a06-a41f-2ab88460508c"
+
+# Подключаемся напрямую к серверам
 client = OpenAI(base_url="https://sambanova.ai", api_key=API_KEY)
 
 # Полный список доступных флагманских моделей
