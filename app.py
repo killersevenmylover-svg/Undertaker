@@ -9,10 +9,9 @@ if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
 if not st.session_state.authenticated:
-    # Окно пароля по центру экрана, пока не введут правильный
     st.markdown("<h2 style='text-align: center;'>🍷 Undertaker 🍷</h2>", unsafe_allow_html=True)
     user_password = st.text_input("Введи пароль для входа в клуб:", type="password")
-    if user_password == "2512":  # 💡 ПОМЕНЯЙ "0000" НА СВОЙ ЛЮБИМЫЙ ПАРОЛЬ!
+    if user_password == "2512":  # 💡 ТВОЙ ПАРОЛЬ ДЛЯ ВХОДА!
         st.session_state.authenticated = True
         st.rerun()
     else:
@@ -20,17 +19,17 @@ if not st.session_state.authenticated:
             st.error("Неверный пароль!")
         st.stop()
 
-# 🔑 ВСТАВЬ СВОЙ НОВЫЙ API-КЛЮЧ ОТ SAMBANOVA СТРОГО В КАВЫЧКИ НИЖЕ:
-API_KEY = "049ac163-be01-4a06-a41f-2ab88460508c"
+# 🔑 ВСТАВЬ СВОЙ API-КЛЮЧ ОТ SAMBANOVA СТРОГО В КАВЫЧКИ НИЖЕ:
+API_KEY = "e851758e-5458-4271-a552-bbe5b8854536"
 
 # Подключаемся напрямую к серверам
 client = OpenAI(base_url="https://sambanova.ai", api_key=API_KEY)
 
-# Полный список доступных флагманских моделей
+# 📦 ОФИЦИАЛЬНЫЕ РАБОЧИЕ ИМЕНА МОДЕЛЕЙ ДЛЯ СЕРВЕРА
 MODELS = {
-    "DeepSeek R1 (Идеальная память и NSFW)": "DeepSeek-R1",
-    "Qwen 3.8 Max (Новейший флагман)": "Qwen3.8-Max",
-    "Llama 3.3 70B (Супер для отыгрыша)": "Meta-Llama-3.3-70B-Instruct"
+    "DeepSeek R1 (Идеальная память и NSFW)": "deepseek-ai/DeepSeek-R1",
+    "gpt-oss 120B (Тяжелый флагман)": "gpt-oss-120b",
+    "Llama 3.3 70B (Супер для отыгрыша)": "meta-llama/Llama-3.3-70B-Instruct"
 }
 
 # Инициализация структуры комнат в памяти приложения
@@ -118,15 +117,14 @@ with st.sidebar:
             st.session_state.rooms[st.session_state.current_room]["messages"] = []
             st.rerun()
 
-# Работа со средней частью — теперь тут ТОЛЬКО чистый чат без мусорных заголовков!
+# Отображение истории сообщений
 active_room = st.session_state.rooms[st.session_state.current_room]
 
-# Отображение истории сообщений
 for message in active_room.get("messages", []):
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Поле ввода пользователя с кастомным текстом «Написать Андертейкеру...»
+# Строка ввода
 if user_input := st.chat_input("Написать Андертейкеру..."):
     with st.chat_message("user"):
         st.markdown(user_input)
@@ -134,7 +132,6 @@ if user_input := st.chat_input("Написать Андертейкеру..."):
         st.session_state.rooms[st.session_state.current_room]["messages"] = []
     st.session_state.rooms[st.session_state.current_room]["messages"].append({"role": "user", "content": user_input})
 
-    # Формируем скрытый контекст запроса
     full_system_context = ""
     if active_room.get("system_prompt", ""):
         full_system_context += f"Main role and instructions:\n{active_room['system_prompt']}\n\n"
@@ -148,7 +145,6 @@ if user_input := st.chat_input("Написать Андертейкеру..."):
     for msg in st.session_state.rooms[st.session_state.current_room]["messages"]:
         api_messages.append({"role": msg["role"], "content": msg["content"]})
 
-    # Запрос к SambaNova с учетом крутилок Температуры и Top-P
     with st.chat_message("assistant"):
         message_placeholder = st.empty()
         full_response = ""
