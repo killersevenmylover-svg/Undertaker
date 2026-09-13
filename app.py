@@ -22,14 +22,14 @@ if not st.session_state.authenticated:
 # 🔑 Твой рабочий API-ключ:
 API_KEY = "e851758e-5458-4271-a552-bbe5b8854536"
 
-# Подключаемся напрямую к серверам через стандартный клиент
+# Подключаемся напрямую через официальный инструмент
 client = OpenAI(base_url="https://sambanova.ai", api_key=API_KEY)
 
-# 📦 АКТУАЛЬНЫЕ НА 2026 ГОД ИМЕНА МОДЕЛЕЙ ДЛЯ SAMBANOVA
+# 📦 ИДЕАЛЬНЫЕ ИМЕНА МОДЕЛЕЙ СТРОГО МАЛЕНЬКИМИ БУКВАМИ (КАК ТРЕБУЕТ СЕРВЕР)
 MODELS = {
-    "DeepSeek R1 (Идеальная память и NSFW)": "DeepSeek-R1",
-    "gpt-oss 120B (Тяжелый флагман)": "gpt-oss-120b",
-    "Llama 3.3 70B (Супер для отыгрыша)": "Meta-Llama-3.3-70B-Instruct"
+    "DeepSeek R1 (Идеальная память и NSFW)": "deepseek-r1",
+    "Llama 3.3 70B (Супер для отыгрыша)": "meta-llama-3.3-70b-instruct",
+    "Qwen 2.5 72B (Умный флагман)": "qwen2.5-72b-instruct"
 }
 
 # Инициализация структуры комнат в памяти приложения
@@ -123,7 +123,7 @@ for message in active_room.get("messages", []):
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Поле ввода пользователя с чистым стабильным выводом
+# Поле ввода пользователя с ПЛАВНОЙ стриминговой печатью
 if user_input := st.chat_input("Написать Андертейкеру..."):
     with st.chat_message("user"):
         st.markdown(user_input)
@@ -147,16 +147,20 @@ if user_input := st.chat_input("Написать Андертейкеру..."):
 
     with st.chat_message("assistant"):
         message_placeholder = st.empty()
+        full_response = ""
         try:
-            # Делаем чистый прямой запрос без поломок чанков
             response = client.chat.completions.create(
                 model=MODELS[active_room["model"]],
                 messages=api_messages,
                 temperature=temperature,
                 top_p=top_p,
-                stream=False
+                stream=True  # Текст снова будет печататься на глазах буковка за буковкой!
             )
-            full_response = response.choices[0].message.content
+            for chunk in response:
+                if chunk.choices[0].delta.content:
+                    content = chunk.choices[0].delta.content
+                    full_response += content
+                    message_placeholder.markdown(full_response + "▌")
             message_placeholder.markdown(full_response)
             st.session_state.rooms[st.session_state.current_room]["messages"].append({"role": "assistant", "content": full_response})
         except Exception as e:
