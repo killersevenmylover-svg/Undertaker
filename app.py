@@ -22,14 +22,14 @@ if not st.session_state.authenticated:
 # 🔑 Твой рабочий API-ключ:
 API_KEY = "e851758e-5458-4271-a552-bbe5b8854536"
 
-# Подключаемся напрямую через официальный инструмент
-client = OpenAI(base_url="https://api.sambanova.ai/v1", api_key=API_KEY)
+# Подключаемся напрямую к серверам через стандартный клиент
+client = OpenAI(base_url="https://sambanova.ai", api_key=API_KEY)
 
-# 📦 ТОЧНЫЕ, СВЕРЕННЫЕ С СЕРВЕРОМ ИМЕНА МОДЕЛЕЙ
+# 📦 АКТУАЛЬНЫЕ НА 2026 ГОД ИМЕНА МОДЕЛЕЙ ДЛЯ SAMBANOVA
 MODELS = {
-    "DeepSeek R1 (Идеальная память и NSFW)": "deepseek-ai/DeepSeek-R1",
-    "Llama 3.3 70B (Супер для отыгрыша)": "meta-llama/Llama-3.3-70B-Instruct",
-    "Qwen 2.5 72B (Умный флагман)": "Qwen/Qwen2.5-72B-Instruct"
+    "DeepSeek R1 (Идеальная память и NSFW)": "DeepSeek-R1",
+    "gpt-oss 120B (Тяжелый флагман)": "gpt-oss-120b",
+    "Llama 3.3 70B (Супер для отыгрыша)": "Meta-Llama-3.3-70B-Instruct"
 }
 
 # Инициализация структуры комнат в памяти приложения
@@ -123,7 +123,7 @@ for message in active_room.get("messages", []):
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Поле ввода пользователя с ПЛАВНОЙ стриминговой печатью
+# Поле ввода пользователя с чистым стабильным выводом
 if user_input := st.chat_input("Написать Андертейкеру..."):
     with st.chat_message("user"):
         st.markdown(user_input)
@@ -147,36 +147,17 @@ if user_input := st.chat_input("Написать Андертейкеру..."):
 
     with st.chat_message("assistant"):
         message_placeholder = st.empty()
-        full_response = ""
         try:
+            # Делаем чистый прямой запрос без поломок чанков
             response = client.chat.completions.create(
                 model=MODELS[active_room["model"]],
                 messages=api_messages,
                 temperature=temperature,
                 top_p=top_p,
-                stream=True  # Текст снова будет печататься на глазах!
+                stream=False
             )
-            for chunk in response:
-                if chunk.choices[delta].content if hasattr(chunk.choices[0], 'delta') else chunk.choices[0].delta.content:
-                    # Корректный разбор чанков для стабильного стриминга
-                    content = chunk.choices[0].delta.content if chunk.choices[0].delta.content else ""
-                    full_response += content
-                    message_placeholder.markdown(full_response + "▌")
+            full_response = response.choices[0].message.content
             message_placeholder.markdown(full_response)
+            st.session_state.rooms[st.session_state.current_room]["messages"].append({"role": "assistant", "content": full_response})
         except Exception as e:
-            # На случай редких багов разбора чанков - делаем запасной не-стрим запрос
-            try:
-                backup_response = client.chat.completions.create(
-                    model=MODELS[active_room["model"]],
-                    messages=api_messages,
-                    temperature=temperature,
-                    top_p=top_p,
-                    stream=False
-                )
-                full_response = backup_response.choices[0].message.content
-                message_placeholder.markdown(full_response)
-            except Exception as backup_error:
-                st.error(f"Ошибка. Текст ошибки: {backup_error}")
-            
-    if full_response:
-        st.session_state.rooms[st.session_state.current_room]["messages"].append({"role": "assistant", "content": full_response})
+            st.error(f"Ошибка. Текст ошибки: {e}")
